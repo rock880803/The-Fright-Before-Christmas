@@ -1,0 +1,606 @@
+<!-- Chosen Palette: Deep Spooky - Almost Black, Deep Purple, Pumpkin Orange, Bright Purple -->
+<!-- Application Structure Plan: Dashboard Layout. Left: Navigation. Center: Dynamic Content (Track details, Lyrics). Right: Visual Analytics (Radar/Doughnut charts). Structure chosen for highly interactive and quick data consumption, allowing non-linear exploration of album themes. -->
+<!-- Visualization & Content Choices: Data -> Goal -> Viz/Presentation Method -> Interaction -> Justification -> Library/Method - All core stats (Spooky, Festive, Energy) are presented via Chart.js Radar and Bar charts for immediate comparative analysis. Lyrics and concept are displayed dynamically based on user click. NO SVG/Mermaid. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Fright Before Christmas - Album Experience</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Fonts */
+        .font-spooky { font-family: 'Creepster', cursive; }
+        .font-body { font-family: 'Nunito', sans-serif; }
+
+        /* Chart Container Styling - MANDATORY */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        
+        /* Mobile specific chart height */
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 250px;
+            }
+        }
+
+        /* Custom Scrollbar - Dark Theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18181b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f3f46; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #52525b; 
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'spooky-dark': '#09090b', 
+                        'spooky-light': '#18181b', 
+                        'festive-orange': '#F97316', 
+                        'festive-ice': '#27272a', 
+                        'festive-green': '#10B981', 
+                        'spooky-accent': '#A855F7', 
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Visualization & Content Choices: Summary: Report Info -> Goal -> Viz/Presentation Method -> Interaction -> Justification -> Library/Method - Confirming NO SVG/Mermaid, supporting the DESIGNED structure. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-spooky-dark font-body text-gray-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header Section -->
+    <header class="bg-spooky-light text-white p-4 shadow-lg z-10 shrink-0">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div class="text-center md:text-left">
+                <h1 class="font-spooky text-3xl md:text-4xl text-festive-orange tracking-wider text-shadow">The Fright Before Christmas <span class="text-2xl">🎃🎄</span></h1>
+                <p class="text-sm text-gray-400 italic mt-1">When Halloween pumpkins crash into a snowy Christmas. Spooky Cute.</p>
+            </div>
+            <div class="mt-3 md:mt-0 flex gap-4 text-sm text-gray-400">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-festive-orange"></span> Halloween
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-festive-ice border border-gray-500"></span> Christmas
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Sidebar Navigation (Tracklist) -->
+        <aside class="w-full md:w-64 bg-spooky-light border-r border-gray-700 overflow-y-auto flex-shrink-0 absolute md:relative z-20 transition-transform duration-300 transform -translate-x-full md:translate-x-0 h-full" id="sidebar">
+            <div class="p-4 bg-gray-900 font-bold text-festive-green border-b border-gray-700 sticky top-0">
+                TRACKLIST
+            </div>
+            <ul id="track-list" class="space-y-1 p-2">
+                <!-- JS will populate this -->
+            </ul>
+        </aside>
+
+        <!-- Mobile Menu Toggle -->
+        <button id="menu-toggle" class="md:hidden absolute top-4 left-4 z-30 bg-spooky-dark text-white p-2 rounded-full shadow-lg">
+            ☰ Tracks
+        </button>
+
+        <!-- Main Display -->
+        <main class="flex-1 overflow-y-auto bg-spooky-dark p-4 md:p-8" id="main-content">
+            
+            <!-- Intro / Welcome State (Hidden when track selected) -->
+            <div id="welcome-state" class="flex flex-col items-center justify-center h-full text-center fade-in">
+                <div class="max-w-2xl bg-spooky-light p-8 rounded-xl shadow-2xl border-t-4 border-festive-orange">
+                    <h2 class="font-spooky text-4xl text-festive-orange mb-4">Welcome to the Party</h2>
+                    <p class="text-lg text-gray-400 mb-6">
+                        Explore the musical fusion where ghosts learn carols and Santa dances with skeletons. 
+                        Select a track to uncover its lyrics, musical composition, and spook-o-meter rating.
+                    </p>
+                    <div class="chart-container mx-auto">
+                        <canvas id="albumOverviewChart"></canvas>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Album-wide Energy vs. Spookiness Analysis</p>
+                </div>
+            </div>
+
+            <!-- Track Detail View -->
+            <div id="track-detail" class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 fade-in hidden">
+                
+                <!-- Left Col: Text Content -->
+                <div class="space-y-6">
+                    <!-- Title Card -->
+                    <div class="bg-spooky-light rounded-xl shadow-md p-6 border-l-8 border-spooky-accent relative overflow-hidden">
+                        <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-festive-orange opacity-20 rounded-full blur-xl"></div>
+                        <h2 id="track-title" class="text-3xl font-bold text-white mb-1">Select a Track</h2>
+                        <div class="flex items-center gap-3 mb-4 text-gray-400">
+                            <span id="track-number" class="bg-spooky-dark text-white text-xs px-2 py-1 rounded">Track #</span>
+                            <span id="track-bpm" class="text-sm font-semibold">BPM: --</span>
+                            <span id="track-style" class="text-sm italic text-spooky-accent">Style: --</span>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                            <h3 class="font-bold text-festive-orange text-sm uppercase mb-1">Concept</h3>
+                            <p id="track-concept" class="text-gray-300 leading-relaxed">...</p>
+                        </div>
+                        
+                        <!-- Audio Player -->
+                        <div id="audio-player-container" class="mt-6 pt-4 border-t border-gray-700 hidden">
+                            <div class="flex items-center gap-2 mb-2 text-festive-orange font-bold text-sm uppercase tracking-wide">
+                                <!-- Unicode Play icon (similar to PlayCircle) -->
+                                <span class="text-lg">▶</span>
+                                <span>AUDIO PREVIEW</span>
+                            </div>
+                            <audio id="track-audio-player"
+                                controls 
+                                class="w-full h-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-festive-orange bg-gray-800" 
+                                src=""
+                            >
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                    </div>
+
+                    <!-- Lyrics Card -->
+                    <div class="bg-spooky-light rounded-xl shadow-md p-6 flex flex-col h-[500px]">
+                        <h3 class="font-bold text-xl text-festive-green mb-4 border-b border-gray-700 pb-2 flex justify-between items-center">
+                            Lyrics
+                            <span class="text-xs font-normal text-gray-500">Scroll to read</span>
+                        </h3>
+                        <div id="lyrics-container" class="flex-1 overflow-y-auto pr-2 space-y-4 text-gray-300 leading-7 font-medium whitespace-pre-line">
+                            <!-- Lyrics injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Col: Visual Analytics -->
+                <div class="space-y-6">
+                    
+                    <!-- Vibe Radar Chart -->
+                    <div class="bg-spooky-light rounded-xl shadow-md p-4">
+                        <h3 class="text-center font-bold text-gray-300 mb-2">The Vibe Check</h3>
+                        <div class="chart-container">
+                            <canvas id="vibeChart"></canvas>
+                        </div>
+                        <p class="text-center text-xs text-gray-500 mt-2 italic">How this track feels</p>
+                    </div>
+
+                    <!-- Instrumentation Doughnut -->
+                    <div class="bg-spooky-light rounded-xl shadow-md p-4">
+                        <h3 class="text-center font-bold text-gray-300 mb-2">Orchestration Breakdown</h3>
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="instrChart"></canvas>
+                        </div>
+                        <div id="instr-legend" class="flex flex-wrap justify-center gap-2 mt-4 text-xs"></div>
+                    </div>
+
+                    <!-- Music Prompt Details -->
+                    <div class="bg-gray-900 text-white rounded-xl shadow-md p-6 border border-gray-700">
+                        <h3 class="font-bold text-lg text-spooky-accent mb-2">Production Notes</h3>
+                        <div class="space-y-3 text-sm text-gray-400">
+                            <div>
+                                <strong class="text-white block">Orchestration:</strong>
+                                <span id="prompt-orch">...</span>
+                            </div>
+                            <div>
+                                <strong class="text-white block">Vocal Style:</strong>
+                                <span id="prompt-vocal">...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- DATA STORE ---
+        // NOTE: Audio sources are set to relative paths, assuming the 'audio' folder is present in the GitHub repo root.
+        const tracks = [
+            {
+                id: 1,
+                title: "Pumpkin Sleigh on Xmas Eve",
+                concept: "The Pumpkin King mimics Santa, mistaking bats for reindeer. Disney-esque magical cinematic opener.",
+                bpm: 120,
+                style: "Magical Dream Pop",
+                stats: { spooky: 60, festive: 80, energy: 75, romance: 20, weirdness: 90 },
+                instruments: { "Orchestral (Strings/Celesta)": 40, "Percussion (Sleigh Bells)": 30, "Electronic (Theremin)": 20, "Vocal": 10 },
+                orchText: "Sleigh bells and Celesta provide magic. Pizzicato strings and Theremin add spooky vibes.",
+                vocalText: "Playful, expressive male/female duet. Theatrical storytelling tone.",
+                audioSrc: './audio/track_1.mp3',
+                lyrics: `[Verse 1]\nPumpkin lights upon the tree\nWhite snow falling, bats are free\nI swapped the candy for spider cake\nPlease don't run, for goodness sake\nI am trying hard to be polite\nIn this freezing, festive night\nThe fog is rolling down the street\nPreparing for a special treat\n\n[Pre-Chorus]\nThe reindeer are sleeping, they need a rest\nMy bat squadron will put this to the test\nFasten your seatbelts, hold on tight\nWe are painting shadows on the white\n\n[Chorus]\nPumpkin Sleigh on Christmas Eve\nFlying high, you best believe\nJingle bells or rattling chains\nA spooky rhythm in the lanes\nNo red suit, just black and sleek\nA gift tonight for the bold and meek\nFrom the graveyard to the town\nWe never let the spirit down\n\n[Verse 2]\nThe chimney is tight, my bones get stuck\nJust my luck, I am out of luck\nInside the sock, a map of fear\nBut look closer, bring it near\nNot a lump of coal, but a dancing bone\nThis is the best party we have ever known\n\n[Verse 3]\nWe bring you presents made of cobweb silk\nInstead of cookies, we left some sour milk\nThe wrapping paper is made of old maps and dust\nIn our delivery methods, you simply must trust\nWe leave you notes written in glow-in-the-dark paint\nFor all the good little monsters, a true holiday saint\n\n[Bridge]\nWe know we look a little strange\nBut the holiday magic is within range\nIt is not about the face you wear\nIt is showing how much you truly care\nSo open the window, let the cold air in\nLet the frightfully festive games begin\n\n[Outro]\nMerry Christmas to the ghosts\nMerry Christmas to the hosts\nThe pumpkin sleigh flies out of sight\nHappy haunting to all, and to all a good night`
+            },
+            {
+                id: 2,
+                title: "Romance of the Skeleton and the Gingerbread",
+                concept: "A skeleton falls in love with a gingerbread cookie. 'Scared to hug you, might crush you.'",
+                bpm: 95,
+                style: "Acoustic Pop / Quirky Folk",
+                stats: { spooky: 30, festive: 60, energy: 40, romance: 100, weirdness: 70 },
+                instruments: { "Acoustic Guitar": 50, "Percussion (Bone/Xylophone)": 30, "Synth Pad": 20 },
+                orchText: "Clean acoustic fingerpicking. Xylophone mimics rattling bones. Soft pads for snow.",
+                vocalText: "Gentle, intimate male (dry) and female (sweet) duet. Sincere and heartwarming.",
+                audioSrc: './audio/track_2.mp3',
+                lyrics: `[Verse 1]\nI am cold and made of bone\nYou are warm, the sweetest known\nI have a frame that is hard and chill\nYou are soft icing, fresh from the grill\nI want to lean in, want to stay\nBut I might crumble you away\nEvery step I take is a click and clack\nWorried that your sugar might crack\n\n[Pre-Chorus]\nOpposites attract, or so they say\nIn this peculiar holiday\nA winter waltz for me and you\nTrying to find a love that is true\n\n[Chorus]\nMr. Skeleton loves Miss Gingerbread\nOne is shivering, one is red\nWant to hold your hand so tight\nBut my bony fingers might bite\nThis romance is a fragile art\nA Christmas special for the heart\nSafe in the box or out in the snow\nWhere you go, I will always go\n\n[Verse 2]\n(Female)\nDon't be scared, my core is jam\nI love you just the way I am\nYour empty chest, I will fill with sweet\nMaking our winter love complete\nDifferent worlds, but hearts the same\nMelting in the candle flame\nI will bake a coat to keep you warm\nSafe and sound from the winter storm\n\n[Verse 3]\n(Male)\nWe went out skating on the icy pond\nI tried to hold your hand, but I felt so fond\nI put on gloves so my bones feel less sharp\nYou laughed so sweetly, warming up my heart\nWe shared a cup of hot cocoa and spice\nYou are always so terribly nice\nThis strange attraction is our destiny\nThe cutest couple that you will ever see\n\n[Bridge]\nIf the fire gets too hot, we will move away\nIf the frost gets too deep, we will find the day\nNothing can break what we have built\nNo crumbs of doubt, no hidden guilt\nA structure of calcium and dough\nThe strongest foundation that we know\n\n[Outro]\nClick, clack, crunch, and sweet\nThe perfect rhythm of our feet\nMr. Skeleton and Miss Gingerbread\nForever happy, forever fed`
+            },
+            {
+                id: 3,
+                title: "Zombie Dance in the Snow",
+                concept: "Zombies dancing in the snow. Stiff but rhythmic movements. Thriller meets Christmas.",
+                bpm: 128,
+                style: "Electro-Swing / Halloween Dance",
+                stats: { spooky: 50, festive: 70, energy: 100, romance: 10, weirdness: 80 },
+                instruments: { "Brass Section": 40, "Slap Bass": 30, "Electronic Beats": 20, "Sleigh Bells": 10 },
+                orchText: "Groovy Slap Bass and funky guitar. Brass section plays swing hooks. Sleigh bells on off-beats.",
+                vocalText: "Rhythmic male and female vocals. Group chanting in chorus.",
+                audioSrc: './audio/track_3.mp3',
+                lyrics: `[Verse 1]\nLeft foot drops, oops, there it goes\nRight foot slides on the frozen snows\nIt is too slippery for the dead\nBut we are dancing here instead\nDon't hide inside, come join the noise\nBlue-faced zombies bringing joys\nThe graveyard gate is open wide\nThere is nowhere left for you to hide\n\n[Pre-Chorus]\nShake the frost off your ragged clothes\nStrike a pose that everyone knows\nThe moon is full, the lights are bright\nWe are taking over the silent night\n\n[Chorus]\nZombie dance in the winter snow\nJoints are stiff, but look at us go\nHands in the air, not to scare or fight\nJust catching snowflakes in the night\nTwist your head and shake your frame\nEvery dancer knows the game\nFrom the crypt to the candy shop\nThe undead rhythm will never stop\n\n[Verse 2]\nThe DJ Witch spins a pumpkin pie\nThe beat drops hard, we reach for the sky\nDon't mind the steps, just wobble around\nThe funkiest monsters in the town\nIn this party, no one stands still\nWe are bringing the heat to the winter chill\nMy arm might detach when I wave hello\nBut that is just part of the show\n\n[Verse 3]\nThe Mummy is leading the conga line now\nHe is making a promise, making a vow\nThe Werewolf howls in time with the drums\nShowing the humans how the party comes\nWe are spreading the holiday cheer far and wide\nWith a zombie shuffle and nowhere to hide\nWe even taught Santa the zombie sway\nMaking this the best day of the year, hey!\n\n[Bridge]\nFreeze!\n(Music stops for a beat)\nNow thaw!\n(Music explodes back)\nBreak it down into the ground\nSpin your head around and around\nGroan to the left, moan to the right\nHappy holidays, what a sight!\n\n[Outro]\nShuffle back to the underground\nBut keep the memory of the sound\nZombie dance, zombie cheer\nSee you all again next year`
+            },
+            {
+                id: 4,
+                title: "Strange Noises in the Chimney",
+                concept: "R&B Atmosphere. Fear turns to warmth as a monster turns out to be a clumsy Santa.",
+                bpm: 85,
+                style: "Lo-Fi R&B / Cozy Jazz",
+                stats: { spooky: 60, festive: 50, energy: 30, romance: 40, weirdness: 40 },
+                instruments: { "Piano (Lo-Fi)": 40, "Saxophone": 30, "Hip-Hop Beats": 30 },
+                orchText: "Dissonant Lo-Fi piano resolves into warm Jazz chords. Smooth Saxophone melody.",
+                vocalText: "Smooth, soulful R&B. Whispery nervous tone turning to warm relief.",
+                audioSrc: './audio/track_4.mp3',
+                lyrics: `[Verse 1]\nMidnight strikes, the fire dies\nChimney sounds, a strange surprise\nIs it a ghost with a scary moan?\nOr a beast claiming the throne?\nI am hiding deep beneath the sheet\nHeart skipping every single beat\nThe shadow grows across the floor\nI cannot take this anymore\n\n[Pre-Chorus]\nCloser, closer, the footsteps fall\nI hear a voice begin to call\nNot a growl, not a scream\nIs this a nightmare or a dream?\n\n[Chorus]\nStrange noises in the chimney flue\nTurns out, my friend, it was only you\nRed hat covered in soot and grime\nNot a monster, just Christmas time\nHere with a gift and a clumsy fall\nSorry for the scare, Merry Christmas to all\n\n[Verse 2]\nYour beard is tangled, you look a sight\nEating my cookies in the middle of the night\nThe fear is gone, the warmth is here\nReplacing the shivers with holiday cheer\nThis spooky start ends with a smile\nPlease stay and rest for a little while\nI pour some milk into a cup\nHelping you to wake back up\n\n[Verse 3]\n(Santa's low chuckle)\n"The map was wrong, the GPS went haywire\nI ended up stuck right above the fire!\nI thought your dog was a tiny wolf in disguise\nAnd the only monster here was my poor surprise!"\nHe straightened his buckle and wiped off the soot\nPromising to find a better delivery route\nHe checks his list twice with a nervous glance\nJust happy to be out of that scary trance\n\n[Bridge]\nYou told me stories of the northern sky\nWhere the magic reindeer fly\nBut you said you liked the haunted house too\nBecause the ghosts are lonely and blue\nSo next year bring them along for the ride\nWe will have a party with nothing to hide\n\n[Outro]\nUp the chimney you go again\nGoodbye to my holiday friend\nNo more monsters, only joy\nFor every girl and every boy`
+            },
+            {
+                id: 5,
+                title: "Silent Night, Spooky Night",
+                concept: "Grand Finale. Monsters, elves, and humans singing together. Gothic solemnity meets Pop emotion.",
+                bpm: 70,
+                style: "Gospel Pop / Gothic Ballad",
+                stats: { spooky: 40, festive: 90, energy: 60, romance: 50, weirdness: 30 },
+                instruments: { "Piano/Organ": 40, "Choir": 50, "Strings": 10 },
+                orchText: "Gothic Pipe Organ transitions to warm Grand Piano. Massive Gospel Choir climax.",
+                vocalText: "Powerful lead vocal (Pop/Soul). Huge mixed choir of monsters and elves.",
+                audioSrc: './audio/track_5.mp3',
+                lyrics: `[Verse 1]\nPale moonlight on the forest floor\nChurch bells ring, we ask for more\nWaking the spirits from their sleep\nPromises that we always keep\nNo more fear, just peace and calm\nMonsters singing a holy psalm\n\n[Pre-Chorus]\nHear the organ play the chord\nHarmony that can't be ignored\nVoices deep and voices high\nReaching up to the starry sky\n\n[Chorus]\nSilent Night, Spooky Night\nDarkness fades into the light\nVampires smile, wolves are tame\nCandles glow, we call your name\nWhoever you are, join the song\nTonight is where we all belong\n\n[Verse 2]\nThe witch puts down her magic brew\nTo share a Christmas wish with you\nThe goblin hangs a mistletoe\nWaiting for love to start to grow\nThe boundaries are all erased\nIn this warm and sacred space\nNo one is judged by shape or skin\nEveryone is welcomed in\n\n[Verse 3]\nThe ghosts have learned the carols well\nTheir voices ring out like a silver bell\nThe elves are dancing with the skeleton crew\nShowing the spirit is honest and true\nThis night of terror becomes a night of grace\nAs smile is growing on every single face\nWe found the true meaning beneath the frost\nNo soul is broken, no spirit is lost\n\n[Bridge]\nSnow covers up the different lines\nIn the melody, our spirit shines\nWe are connected, hand in hand\nAcross this magical, winter land\nThis strange night will never fade\nThe best memory we have ever made\nSing it loud for the world to hear\nDissolving every trace of fear\n\n[Outro]\nSleep in heavenly peace\nLet the frightening cease\nSleep in heavenly peace`
+            },
+            {
+                id: 6,
+                title: "Santa's Candy Heist",
+                concept: "Santa steals Halloween candy because he's bored of cookies. Funny conflict.",
+                bpm: 128,
+                style: "Electro-Swing / Funky Pop",
+                stats: { spooky: 20, festive: 60, energy: 90, romance: 0, weirdness: 85 },
+                instruments: { "Brass": 30, "Slap Bass": 40, "Electronic Beats": 30 },
+                orchText: "Groovy Slap Bass, funky guitar, catchy brass hooks. Cartoonish sound effects.",
+                vocalText: "Rhythmic group chanting. High energy.",
+                audioSrc: './audio/track_6.mp3',
+                lyrics: `[Verse 1]\nThe list is checked, the sleigh is clean\nBut Santa's bored of the usual routine\nHe has seen enough milk, he has seen enough cookies\nHe wants the black jellybeans and the spookies\nHe swapped the chimney for the basement door\nGonna take all the treats and then some more\n\n[Pre-Chorus]\nHis sack is empty, his motives changed\nHis festive spirit is strangely deranged\nA new mission under the pale moonlight\nHe is trading the good cheer for sugar tonight\n\n[Chorus]\nSanta's got a candy heist tonight\nHo-ho-ho turns to Fright-fright-fright\nHis velvet boots are sneaking low\nMoving quiet across the snow\nHe left the nice list on the shelf\nThis Christmas, Santa's for himself\n\n[Verse 2]\nHe sees the bowls full of chocolate gold\nA story better than the one that has been told\nHe whispers "Trick or Treat" with a jolly deep voice\nThe ghosts and goblins gave him no choice\nHe is using reindeer magic for a quick escape\nGot the whole town's candy in a huge black drape\n\n[Verse 3]\nThe police are confused, they check the scene\nNo crumbs, no footprints, nothing is mean\nJust a faint smell of mint and Christmas spice\nAnd a note that says "Thanks for being nice!"\nThe monsters wake up, their stash is gone\nThey realize Santa pulled a fast one until dawn\n\n[Bridge]\nHe flies back north, his belly full and round\nThe sound of his laughter across the frozen ground\nHe is teaching the ghouls a valuable lesson, you see\nThat the best kind of treats are the ones that are free\nHe is celebrating both holidays in one sweep\nWhile all the good children are sound asleep\n\n[Outro]\nMerry Christmas to the thieves\nHappy Halloween to the hosts\nSanta Claus is the true anti-hero\nHe got the sugar, down to zero`
+            },
+            {
+                id: 7,
+                title: "The DJ Witch's Ball",
+                concept: "Massive monster party in a haunted mansion hosted by a DJ Witch.",
+                bpm: 128,
+                style: "Electro-Swing / Halloween Dance",
+                stats: { spooky: 70, festive: 50, energy: 100, romance: 10, weirdness: 80 },
+                instruments: { "Brass": 30, "Slap Bass": 30, "Electronic Beats": 30, "Sound FX": 10 },
+                orchText: "Funky guitar, brass hooks, sleigh bells on off-beats. Bubbling cauldron FX.",
+                vocalText: "Rhythmic male/female vocals. Group chanting.",
+                audioSrc: './audio/track_7.mp3',
+                lyrics: `[Verse 1]\nThe haunted mansion is open late\nFor every ghoul and every mate\nThe door is creaking, the lights are dim\nThe party's for the wicked, not the whim\nThe punch bowl is bubbling, it is green and it is strange\nTonight, we are all out of our normal range\n\n[Pre-Chorus]\nThe music starts with a scratch and a hiss\nA beat so funky, you can't resist\nThe broomsticks are parked outside the door\nGet ready to hit the dance floor\n\n[Chorus]\nThe DJ Witch's Ball is on the air\nMixing the magic without a care\nCrank up the volume, let the cauldrons steam\nThis is the ultimate holiday dream\nFrom the ceiling hangs a giant web of lace\nMonsters are showing their happiest face\n\n[Verse 2]\nThe werewolf is spinning, the mummy is doing the twist\nEven the Vampire can't be missed\nThe ghost floats by, doing the cha-cha-cha\nA spooky symphony, tra-la-la-la\nThe punch is spiked with genuine fear\nThe best celebration of the whole year\n\n[Verse 3]\nThe spellbook is open, the party's a hit\nThe floor is shaking, nobody wants to quit\nWe are dancing with joy, we are dancing with glee\nThe most chaotic Christmas party you will ever see\nThe Witch smiles wide, her work is done\nThe night is long, we dance until the sun\n\n[Bridge]\nShe casts a spell on the sound system now\nMixing Santa's naughty list with a howl\nShe's got the power, she's got the control\nPutting joy and terror into every soul\nShe snaps her fingers, the tempo changes fast\nMaking this madness forever last\n\n[Outro]\nOne last spin beneath the moon\nWe will see you again very soon\nThe DJ Witch says "Goodnight, my dears"\nWiping away all your festive tears`
+            },
+            {
+                id: 8,
+                title: "The Naughty List Masquerade",
+                concept: "Chaotic mix: Stolen gifts, jealous teddy bear, evil snowmen.",
+                bpm: 128,
+                style: "Electro-Swing / Funky Pop",
+                stats: { spooky: 80, festive: 30, energy: 95, romance: 0, weirdness: 100 },
+                instruments: { "Brass": 30, "Slap Bass": 30, "Toy Sounds": 20, "Beats": 20 },
+                orchText: "Groovy bass, brass hooks. Distorted toy noises for the teddy bear.",
+                vocalText: "Rhythmic vocals with high energy. Chaotic group shouting.",
+                audioSrc: './audio/track_8.mp3', 
+                lyrics: `[Verse 1]\nSnow is falling, the bells are ringing\nBut the gifts you got are slightly stinging\nSanta swapped the nice list for the bad\nTook the treats the ghouls already had\nYour new toys smell like pumpkin spice and dirt\nHe says, "It's tradition, no one gets hurt!"\nBut deep in the velvet sack, something is wrong\nThis festive chaos is where we belong\n\n[Pre-Chorus]\nThe windows rattle, the lights are dim\nThe holiday spirit is playing a grim whim\nLook under the covers, don't you dare close your eyes\nThe true spirit of giving is a deadly surprise\n\n[Chorus]\nIt's the Naughty List Masquerade!\nWhere every promise is quickly betrayed\nThe teddy bear's eyes are glowing red\nWants the gingerbread beside your bed\nThe snowmen outside are plotting slow\nWe are dancing to the wicked show!\n\n[Verse 2]\nYour teddy, Mr. Snuggles, he looks so sweet\nBut tonight he wants more than just soft little feet\nHe mutters dark secrets, he wants your soul\nHe is tired of playing the comforting role\nHe is climbing the pillow, teeth are made of ice\nHe thinks human flesh would be terribly nice\n\n[Verse 3]\nDon't look outside, the snowmen are marching\nWith coal eyes watching, their smiles are scorching\nThey are tired of standing still on the lawn\nThey want to cause chaos until the dawn\nThey point their stick arms, a signal of doom\nTrying to smash their way into your room\nThey are the neighborhood's little white devils of fright\nRuining the silent, holy night\n\n[Bridge]\n(Female)\nThe snowmen bang, the bear starts to growl\n(Male)\nSanta's just laughing with a mischievous howl\n(Both)\nIt is all part of the fun, a little festive despair\nEmbrace the madness, we don't even care!\nJust spin around fast to the rhythm of doom\nLet the chaos cleanse every little room!\n\n[Outro]\nClose the curtains, lock the door, hug the pillow tight\nMerry Spooky Christmas, and a terrifying night!`
+            },
+            {
+                id: 9,
+                title: "Pumpkin Rider's Harvest",
+                concept: "Headless Pumpkin Rider collects souls of monsters who overstayed holiday curfew.",
+                bpm: 130,
+                style: "Electro-Swing / Gothic Western",
+                stats: { spooky: 90, festive: 20, energy: 85, romance: 0, weirdness: 70 },
+                instruments: { "Strings (Tremolo)": 30, "Brass": 30, "Slap Bass": 20, "Horse FX": 20 },
+                orchText: "Driving galloping rhythm. High-tension string tremolo. Sharp imposing brass.",
+                vocalText: "Rhythmic male lead, singing with urgency and authority. Low spoken-word bridge.",
+                audioSrc: './audio/track_9.mp3',
+                lyrics: `[Verse 1]\nThe clock strikes twelve, the snow is red\nThe Pumpkin Rider leaves his bed\nHis steed is black, his armor gleams\nAwakening the Christmas dreams\nBut he is not here for joy or gifts\nHe is here for the souls that drift\nEvery monster who danced too long\nMust answer to the harvest song\n\n[Pre-Chorus]\nRattling hooves on the icy ground\nThe scariest, fastest hunt in town\nHear the jingle mixed with the howl\nThe Rider's here to claim his toll now\n\n[Chorus]\nPumpkin Rider's Harvest tonight!\nCollecting souls in the pale moonlight\nJingle bells and the swinging scythe\nIt is time to end the wicked life\nNo more candy, no more cheer\nThe Headless One is standing near\n\n[Verse 2]\nThe Mummy screams, the Vampire hides\nHe checks his list for those who abide\nHe finds the Goblin drinking all the wine\nSays, "Your time is up, this soul is mine!"\nHe straps the spirits to his flying horse\nPutting the monsters back on course\n\n[Verse 3]\nHe sees the remnants of the Christmas wreath\nTired of the cold, he breathes a sigh beneath\nHe misses pumpkin patches and warm fear\nBut his duty calls, year after year\nHe checks the chimney for lingering ghosts\nCollecting the naughty hosts\nHis job is messy, but it pays his fee\nThe silent taxman of Eternity\n\n[Bridge]\n(Spoken, low voice)\nThe Rider looks up at the falling flakes\n"Next year, maybe I'll take a short break..."\nBut the sound of his scythe is a promise true\nHe will always finish what he came to do\nSo monsters, beware, when the clock strikes one\nYour frightfully festive freedom is done!\n\n[Outro]\nThe Rider disappears in a puff of smoke\nLeaving behind only the sound of his cloak\nHappy Harvest, you spooky fiends\nSee you when the next holiday begins`
+            },
+            {
+                id: 10,
+                title: "Santa's Zombie Tax",
+                concept: "Santa leads elves to reclaim stolen candy from zombies in the graveyard.",
+                bpm: 128,
+                style: "Electro-Swing / Halloween Dance",
+                stats: { spooky: 60, festive: 60, energy: 95, romance: 0, weirdness: 90 },
+                instruments: { "Brass": 40, "Slap Bass": 30, "Sleigh Bells": 20, "Beats": 10 },
+                orchText: "Groovy bass, brass hooks. Sleigh bells. Spooky zombie groan FX.",
+                vocalText: "Rhythmic male/female vocals. Group chanting.",
+                audioSrc: './audio/track_10.mp3',
+                lyrics: `[Verse 1]\nThe zombies gathered 'round the tree\nWith all the stolen candy, they were gleeful\nThey thought they got away, the fools\nBreaking Santa's winter rules\nBut Santa's got an inventory list\nFor every single treat that he has missed\nHe traced the gingerbread and the spice\nRight back to the graveyard ice\n\n[Pre-Chorus]\nHo-ho-ho, he's here for the tax\nHe's not delivering, he's on the attack\nHear the sleigh bells with a metallic ring\nIt's time to make the monsters sing\n\n[Chorus]\nSanta's Zombie Tax is due!\nGive back the treats, every last one of you!\nElves with flashlights and a heavy bass\nChasing the ghouls all over the place\nYou celebrated Halloween too long\nNow listen to the punishment song\nIt's the North Pole's ultimate clean-up crew\nWe want the chocolate and the jelly stew!\n\n[Verse 2]\nThe zombies moan, "But we worked so hard!"\nSanta says, "That's what's on your naughty card!"\nThe skeletons scatter, clickety-clack\nTrying to hide the candy in their sack\n\n[Verse 3]\nSanta sees the Pumpkin King in the distance\nOffers a truce, but there's heavy resistance\n"I need the sugar to power my flight!"\n"But we need the treats for the whole long night!"\nA festive standoff beneath the moon's glow\nWho gets the candy, nobody knows!\n\n[Bridge]\n(Spoken, jovial but firm)\n"Listen up, you naughty little fiends!\nThe season of giving means paying the means!\nI'll share half, just this once, if you learn to clean up\nNext year, you better leave me a bigger cup!"\nThe zombies cheer, the elves make peace\nA sugar treaty brings sweet release!\n\n[Outro]\nHo-ho-ho, the tax is paid!\nThe best truce that was ever made\nSanta leaves a gingerbread house behind\nFor the monsters to enjoy, kind of kind\nMerry Halloween, Happy Christmas too\nThe candy is saved, the fight is through!`
+            },
+            {
+                id: 11,
+                title: "Succubus's Overtime Trap",
+                concept: "Succubus hunts exhausted office workers on snowy streets offering eternal rest.",
+                bpm: 128,
+                style: "Electro-Swing / Dark Cabaret",
+                stats: { spooky: 75, festive: 40, energy: 80, romance: 60, weirdness: 60 },
+                instruments: { "Saxophone": 40, "Brass": 20, "Slap Bass": 20, "Beats": 20 },
+                orchText: "Dominant seductive Saxophone lead. Sharp brass stabs. Slap bass groove.",
+                vocalText: "Seductive female lead. Rhythmic male backing. Spoken-word parts.",
+                audioSrc: './audio/track_11.mp3',
+                lyrics: `[Verse 1]\nThe clock hits three, the streets are dead\nAnother deadline swimming in your head\nYou walk alone beneath the streetlight's glare\nToo tired to notice the ice in the air\n\n[Pre-Chorus]\nShe snaps her fingers, the rhythm starts to swing\nHear the soft sound the silver bracelets bring\nA warm distraction from the corporate freeze\nShe offers secrets, she promises ease\n\n[Chorus]\nOh, the Succubus's Overtime Trap!\nShe is here to break the soul's snap\nDrop the spreadsheets, forget the KPI\nYou deserve a party in the hellfire sky\nShe is trading hours for eternal dance\nGiving your tired spirit a second chance!\n\n[Verse 2]\nShe whispers low, "You look so pale, my dear\nLet me melt away the office fear."\nShe offers wine that tastes like cinnamon spice\nA single night in paradise\nYou try to resist, you try to say no\nBut the thought of the desk makes your spirit slow\n\n[Verse 3]\nShe laughs, "The holidays are the perfect time!\nTo catch the souls that commit corporate crime.\nYou traded passion for the morning commute\nNow your spirit is mine, without dispute!"\nShe offers slippers made of velvet skin\nA lifetime of parties where the fun begins\n\n[Bridge]\n(Male)\nI think I signed the dotted line\n(Female)\nWelcome, darling, now you are mine\n(Both)\nThe snow is falling, the music's loud and clear\nThis is better than Christmas cheer!\nNo more meetings, no more calls\nJust endless dancing in these festive halls!\n\n[Outro]\nSleep now, darling, the work is through\nThe Succubus has chosen you`
+            }
+        ];
+
+        // --- CHART INSTANCES ---
+        let vibeChart = null;
+        let instrChart = null;
+        let albumChart = null;
+
+        // --- DOM ELEMENTS ---
+        const trackListEl = document.getElementById('track-list');
+        const mainContentEl = document.getElementById('main-content');
+        const welcomeStateEl = document.getElementById('welcome-state');
+        const trackDetailEl = document.getElementById('track-detail');
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+
+        // --- INIT ---
+        function init() {
+            renderTrackList();
+            renderAlbumOverview();
+            
+            // Show welcome state initially
+            trackDetailEl.classList.add('hidden');
+            welcomeStateEl.classList.remove('hidden');
+
+            // Mobile menu toggle
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+            });
+        }
+
+        // --- RENDER TRACK LIST ---
+        function renderTrackList() {
+            trackListEl.innerHTML = tracks.map((track, index) => `
+                <li onclick="selectTrack(${index})" 
+                    class="cursor-pointer p-3 rounded-lg hover:bg-festive-ice transition-colors border-b border-gray-900 flex items-center gap-3 group">
+                    <span class="font-spooky text-xl text-gray-600 group-hover:text-festive-orange w-6">${track.id}</span>
+                    <div class="flex-1">
+                        <div class="font-bold text-sm text-gray-200 group-hover:text-white truncate">${track.title}</div>
+                        <div class="text-xs text-gray-500 truncate">${track.style}</div>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        // --- SELECT TRACK ---
+        window.selectTrack = function(index) {
+            const track = tracks[index];
+            
+            // UI Toggle
+            welcomeStateEl.classList.add('hidden');
+            trackDetailEl.classList.remove('hidden');
+            if(window.innerWidth < 768) sidebar.classList.add('-translate-x-full'); // Close mobile menu
+
+            // Populate Text Data
+            document.getElementById('track-title').innerText = track.title;
+            document.getElementById('track-number').innerText = `Track #${track.id}`;
+            document.getElementById('track-bpm').innerText = `${track.bpm} BPM`;
+            document.getElementById('track-style').innerText = track.style;
+            document.getElementById('track-concept').innerText = track.concept;
+            document.getElementById('lyrics-container').innerText = track.lyrics;
+            
+            document.getElementById('prompt-orch').innerText = track.orchText;
+            document.getElementById('prompt-vocal').innerText = track.vocalText;
+
+            // Render Charts
+            renderVibeChart(track);
+            renderInstrChart(track);
+
+            // Handle Audio Player
+            const audioPlayerContainer = document.getElementById('audio-player-container');
+            const audioPlayer = document.getElementById('track-audio-player');
+            
+            // This is the core fix: Ensure audio file names are correct relative to the 'audio' folder
+            const baseFileName = track.audioSrc.substring(track.audioSrc.lastIndexOf('/') + 1);
+            const relativePath = `./audio/${baseFileName}`;
+
+            if (relativePath) {
+                audioPlayer.src = relativePath;
+                audioPlayerContainer.classList.remove('hidden');
+                audioPlayerContainer.querySelector('div span:last-child').textContent = 'AUDIO PREVIEW';
+
+                // *** NEW: Attempt to play the track ***
+                audioPlayer.play().catch(error => {
+                    console.log("Autoplay was prevented. User must click play.", error);
+                    // Optionally update the UI to show playback failed due to browser restriction
+                }); 
+            } else {
+                audioPlayer.src = '';
+                audioPlayerContainer.classList.remove('hidden');
+                audioPlayerContainer.querySelector('div span:last-child').textContent = 'AUDIO FILE MISSING';
+            }
+        };
+
+        // --- CHARTS LOGIC ---
+
+        function renderVibeChart(track) {
+            const ctx = document.getElementById('vibeChart').getContext('2d');
+            if (vibeChart) vibeChart.destroy();
+
+            vibeChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Spooky', 'Festive', 'Energy', 'Romance', 'Weirdness'],
+                    datasets: [{
+                        label: track.title,
+                        data: [
+                            track.stats.spooky, 
+                            track.stats.festive, 
+                            track.stats.energy, 
+                            track.stats.romance, 
+                            track.stats.weirdness
+                        ],
+                        backgroundColor: 'rgba(249, 115, 22, 0.2)', // Festive Orange transparent
+                        borderColor: 'rgb(168, 85, 247)', // Spooky Purple Tailwind
+                        pointBackgroundColor: 'rgb(249, 115, 22)',
+                        pointBorderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#3f3f46' }, // Darker grid lines
+                            grid: { color: '#3f3f46' },
+                            pointLabels: {
+                                font: { size: 12, family: 'Nunito', weight: 'bold' },
+                                color: '#a1a1aa'
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderInstrChart(track) {
+            const ctx = document.getElementById('instrChart').getContext('2d');
+            if (instrChart) instrChart.destroy();
+
+            const labels = Object.keys(track.instruments);
+            const data = Object.values(track.instruments);
+            
+            // Dark Mode Colors
+            const colors = ['#A855F7', '#F97316', '#10B981', '#3B82F6', '#64748B'];
+
+            instrChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#a1a1aa',
+                                boxWidth: 10,
+                                font: { size: 10, family: 'Nunito' }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderAlbumOverview() {
+            const ctx = document.getElementById('albumOverviewChart').getContext('2d');
+            
+            const energyData = tracks.map(t => t.stats.energy);
+            const spookyData = tracks.map(t => t.stats.spooky);
+            const labels = tracks.map(t => `Trk ${t.id}`);
+
+            albumChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Energy',
+                            data: energyData,
+                            backgroundColor: '#F97316', // Orange
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Spookiness',
+                            data: spookyData,
+                            backgroundColor: '#A855F7', // Purple
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100, 
+                            grid: { display: false },
+                            ticks: { color: '#a1a1aa' }
+                        },
+                        x: { 
+                            grid: { display: false },
+                            ticks: { color: '#a1a1aa' }
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: { color: '#a1a1aa' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>
