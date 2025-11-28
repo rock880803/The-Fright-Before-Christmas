@@ -354,7 +354,7 @@
                 orchText: "Groovy bass, brass hooks. Sleigh bells. Spooky zombie groan FX.",
                 vocalText: "Rhythmic male/female vocals. Group chanting.",
                 audioSrc: './audio/track_10.mp3',
-                lyrics: `[Verse 1]\nThe zombies gathered 'round the tree\nWith all the stolen candy, they were gleeful\nThey thought they got away, the fools\nBreaking Santa's winter rules\nBut Santa's got an inventory list\nFor every single treat that he has missed\nHe traced the gingerbread and the spice\nRight back to the graveyard ice\n\n[Pre-Chorus]\nHo-ho-ho, he's here for the tax\nHe's not delivering, he's on the attack\nHear the sleigh bells with a metallic ring\nIt's time to make the monsters sing\n\n[Chorus]\nSanta's Zombie Tax is due!\nGive back the treats, every last one of you!\nElves with flashlights and a heavy bass\nChasing the ghouls all over the place\nYou celebrated Halloween too long\nNow listen to the punishment song\nIt's the North Pole's ultimate clean-up crew\nWe want the chocolate and the jelly stew!\n\n[Verse 2]\nThe zombies moan, "But we worked so hard!"\nSanta says, "That's what's on your naughty card!"\nThe skeletons scatter, clickety-clack\nTrying to hide the candy in their sack\n\n[Verse 3]\nSanta sees the Pumpkin King in the distance\nOffers a truce, but there's heavy resistance\n"I need the sugar to power my flight!"\n"But we need the treats for the whole long night!"\nA festive standoff beneath the moon's glow\nWho gets the candy, nobody knows!\n\n[Bridge]\n(Spoken, jovial but firm)\n"Listen up, you naughty little fiends!\nThe season of giving means paying the means!\nI'll share half, just this once, if you learn to clean up\nNext year, you better leave me a bigger cup!"\nThe zombies cheer, the elves make peace\nA sugar treaty brings sweet release!\n\n[Outro]\nHo-ho-ho, the tax is paid!\nThe best truce that was ever made\nSanta leaves a gingerbread house behind\nFor the monsters to enjoy, kind of kind\nMerry Halloween, Happy Christmas too\nThe candy is saved, the fight is through!`
+                lyrics: `[Verse 1]\nThe zombies gathered 'round the tree\nWith all the stolen candy, they were gleeful\nThey thought they got away, the fools\nBreaking Santa's winter rules\nBut Santa's got an inventory list\nFor every single treat that he has missed\nHe traced the gingerbread and the spice\nRight back to the graveyard ice\n\n[Pre-Chorus]\nHo-ho-ho, he's here for the tax\nHee's not delivering, he's on the attack\nHear the sleigh bells with a metallic ring\nIt's time to make the monsters sing\n\n[Chorus]\nSanta's Zombie Tax is due!\nGive back the treats, every last one of you!\nElves with flashlights and a heavy bass\nChasing the ghouls all over the place\nYou celebrated Halloween too long\nNow listen to the punishment song\nIt's the North Pole's ultimate clean-up crew\nWe want the chocolate and the jelly stew!\n\n[Verse 2]\nThe zombies moan, "But we worked so hard!"\nSanta says, "That's what's on your naughty card!"\nThe skeletons scatter, clickety-clack\nTrying to hide the candy in their sack\n\n[Verse 3]\nSanta sees the Pumpkin King in the distance\nOffers a truce, but there's heavy resistance\n"I need the sugar to power my flight!"\n"But we need the treats for the whole long night!"\nA festive standoff beneath the moon's glow\nWho gets the candy, nobody knows!\n\n[Bridge]\n(Spoken, jovial but firm)\n"Listen up, you naughty little fiends!\nThe season of giving means paying the means!\nI'll share half, just this once, if you learn to clean up\nNext year, you better leave me a bigger cup!"\nThe zombies cheer, the elves make peace\nA sugar treaty brings sweet release!\n\n[Outro]\nHo-ho-ho, the tax is paid!\nThe best truce that was ever made\nSanta leaves a gingerbread house behind\nFor the monsters to enjoy, kind of kind\nMerry Halloween, Happy Christmas too\nThe candy is saved, the fight is through!`
             },
             {
                 id: 11,
@@ -376,6 +376,9 @@
         let instrChart = null;
         let albumChart = null;
 
+        // --- GLOBAL STATE ---
+        let currentTrackIndex = 0; // Tracks the currently loaded track index
+
         // --- DOM ELEMENTS ---
         const trackListEl = document.getElementById('track-list');
         const mainContentEl = document.getElementById('main-content');
@@ -383,6 +386,7 @@
         const trackDetailEl = document.getElementById('track-detail');
         const sidebar = document.getElementById('sidebar');
         const menuToggle = document.getElementById('menu-toggle');
+        const audioPlayer = document.getElementById('track-audio-player'); // Global Audio Element
 
         // --- INIT ---
         function init() {
@@ -397,12 +401,30 @@
             menuToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('-translate-x-full');
             });
+            
+            // *** NEW: Add event listener for auto-play next ***
+            audioPlayer.addEventListener('ended', playNextTrack);
+        }
+        
+        // --- PLAY NEXT TRACK LOGIC ---
+        function playNextTrack() {
+            // Check if we are at the last track
+            if (currentTrackIndex < tracks.length - 1) {
+                const nextIndex = currentTrackIndex + 1;
+                console.log(`Track ${currentTrackIndex + 1} ended. Automatically playing next track: ${nextIndex + 1}`);
+                selectTrack(nextIndex); // Play the next track
+            } else {
+                console.log("Album finished. Returning to the first track.");
+                // Optional: Loop back to the first track (index 0)
+                selectTrack(0);
+                audioPlayer.pause(); // Or pause after selecting the first track
+            }
         }
 
         // --- RENDER TRACK LIST ---
         function renderTrackList() {
             trackListEl.innerHTML = tracks.map((track, index) => `
-                <li onclick="selectTrack(${index})" 
+                <li id="track-${index}" onclick="selectTrack(${index})" 
                     class="cursor-pointer p-3 rounded-lg hover:bg-festive-ice transition-colors border-b border-gray-900 flex items-center gap-3 group">
                     <span class="font-spooky text-xl text-gray-600 group-hover:text-festive-orange w-6">${track.id}</span>
                     <div class="flex-1">
@@ -416,11 +438,23 @@
         // --- SELECT TRACK ---
         window.selectTrack = function(index) {
             const track = tracks[index];
+            currentTrackIndex = index; // Update global index
             
             // UI Toggle
             welcomeStateEl.classList.add('hidden');
             trackDetailEl.classList.remove('hidden');
             if(window.innerWidth < 768) sidebar.classList.add('-translate-x-full'); // Close mobile menu
+
+            // --- Highlight Logic ---
+            document.querySelectorAll('#track-list li').forEach(li => {
+                li.classList.remove('bg-festive-ice', 'border-l-4', 'border-festive-orange');
+                li.querySelector('span:first-child').classList.replace('text-festive-orange', 'text-gray-600');
+            });
+            const selectedLi = document.getElementById(`track-${index}`);
+            if (selectedLi) {
+                selectedLi.classList.add('bg-festive-ice', 'border-l-4', 'border-festive-orange');
+                selectedLi.querySelector('span:first-child').classList.replace('text-gray-600', 'text-festive-orange');
+            }
 
             // Populate Text Data
             document.getElementById('track-title').innerText = track.title;
@@ -439,7 +473,6 @@
 
             // Handle Audio Player
             const audioPlayerContainer = document.getElementById('audio-player-container');
-            const audioPlayer = document.getElementById('track-audio-player');
             
             // This is the core fix: Ensure audio file names are correct relative to the 'audio' folder
             const baseFileName = track.audioSrc.substring(track.audioSrc.lastIndexOf('/') + 1);
@@ -450,10 +483,11 @@
                 audioPlayerContainer.classList.remove('hidden');
                 audioPlayerContainer.querySelector('div span:last-child').textContent = 'AUDIO PREVIEW';
 
-                // *** NEW: Attempt to play the track ***
+                // *** Attempt to play the track ***
                 audioPlayer.play().catch(error => {
                     console.log("Autoplay was prevented. User must click play.", error);
-                    // Optionally update the UI to show playback failed due to browser restriction
+                    // Since the user initiated the click, the browser might allow it.
+                    // If it fails, the user must manually click.
                 }); 
             } else {
                 audioPlayer.src = '';
